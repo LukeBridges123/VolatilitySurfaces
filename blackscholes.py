@@ -2,21 +2,42 @@ from scipy import stats
 from scipy.optimize import root_scalar
 import math
 
-def call_price(price, time, strike, expiry, volatility, interest_rate):
-    ttm = expiry - time
-    d1 = math.log(price/strike) + (interest_rate + volatility**2 / 2) * ttm
-    d1 = d1 / (volatility * math.sqrt(ttm))
-    d2 = math.log(price / strike) + (interest_rate - volatility ** 2 / 2) * ttm
-    d2 = d2 / (volatility * math.sqrt(ttm))
+def call_price(expiry, strike, initial_price, interest, volatility):
+    """
+    Calculate the Black-Scholes price of a call option.
+    :param expiry: time till expiry (in years). Equivalently, time when the option expires, assuming the current
+    time is 0.
+    :param strike: Strike price for the option.
+    :param initial_price: Current price of the underlying asset (stock, etc.)
+    :param interest: Annual interest rate.
+    :param volatility: Volatility of the underlying asset.
+    :return: Price of the option.
+    """
+    d1 = math.log(initial_price / strike) + (interest + volatility ** 2 / 2) * expiry
+    d1 = d1 / (volatility * math.sqrt(expiry))
+    d2 = math.log(initial_price / strike) + (interest - volatility ** 2 / 2) * expiry
+    d2 = d2 / (volatility * math.sqrt(expiry))
 
     prob1 = stats.norm.cdf(d1)
     prob2 = stats.norm.cdf(d2)
 
-    return price * prob1 - strike * math.exp(-1 * interest_rate * ttm) * prob2
+    return initial_price * prob1 - strike * math.exp(-1 * interest * expiry) * prob2
 
-def implied_volatility(price, time, strike, expiry, interest_rate, option_price):
+def implied_volatility(expiry, strike, initial_price, interest, option_price):
+    """
+    Calculate the Black-Scholes implied volatility of an option at a given price.
+    :param expiry: time till expiry (in years). Equivalently, time when the option expires, assuming the current
+    time is 0.
+    :param strike: Strike price for the option.
+    :param initial_price: Current price of the underlying asset (stock, etc.)
+    :param interest: Annual interest rate.
+    :param option_price: Current price of the option.
+    :return: Implied volatility of the stock.
+    """
     def to_solve(sigma):
-        return call_price(price, time, strike, expiry, sigma, interest_rate) - option_price
+        return call_price(expiry, strike, initial_price, interest, sigma) - option_price
     return root_scalar(to_solve, x0=1, x1=2).root
-print(call_price(32, 0, 35, 0.5, 0.3, 0.05))
-print(implied_volatility(32, 0, 25, 0.5, 0.05, 7.9))
+
+
+print(call_price(0.5, 35, 32, 0.05, 0.3))
+print(implied_volatility(0.5, 25, 32, 0.05, 7.9))
