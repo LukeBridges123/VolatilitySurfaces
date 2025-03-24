@@ -1,5 +1,6 @@
 from scipy.optimize import root_scalar
 from scipy.integrate import quad
+import numpy as np
 from numpy import inf
 import math
 
@@ -49,7 +50,7 @@ def carr_pelts_price(h, tau, expiry, strike, initial_price, interest):
     z = find_z(h, tau, expiry, strike, initial_price, interest)
 
     def omega(z):
-        return quad(lambda x: math.exp(-1 * h(x)), -inf, z)[0]
+        return quad(lambda x: np.exp(-1 * h(x)), -inf, z)[0]
     return discount * (forward * omega(z + tau(expiry)) - strike * omega(z))
 
 
@@ -76,6 +77,44 @@ def find_tau(expiries, volatilities):
                          volatilities[M] ** 2 * (t - expiries[M]))
 
     return new_tau
+# N.B. We assume that nodes[0] = -inf and nodes[-1] = inf
+def find_h(nodes, a, b, c_list):
+    N = len(nodes) // 2
+    a_list = [a] * (2 * N)
+    b_list = [b] * (2 * N)
+
+    for i in range(N, 2 * N - 1):
+        a_list[i+1] = a_list[i] + b_list[i] * (nodes[i+1] - nodes[i]) + (1/(2*c_list[i])) * (nodes[i+1]-nodes[i])**2
+        b_list[i+1] = b_list[i] + (1/c_list[i]) * (nodes[i+1] - nodes[i])
+    for i in range(N-1, 0, -1):
+        a_list[i-1] = a_list[i] + b_list[i] * (nodes[i] - nodes[i+1]) + (1/(2*c_list[i])) * (nodes[i]-nodes[i+1])**2
+        b_list[i-1] = b_list[i] + (1/c_list[i]) * (nodes[i] - nodes[i-1])
+
+    omega = 0
+    for i in range(0, N):
+        integral = quad(lambda x: np.exp(-1 * (a_list[i] + b_list[i] * (x - nodes[i+1]) + (1 / (2 * c_list[i])) * (x - nodes[i+1])**2)),
+                        nodes[i], nodes[i+1])
+        omega += integral[0]
+    for i in range(N, 2*N):
+        integral = quad(lambda x: np.exp(-1 * (a_list[i] + b_list[i] * (x - nodes[i]) + (1 / (2 * c_list[i])) * (x - nodes[i]) ** 2)),
+                        nodes[i], nodes[i + 1])
+        omega += integral[0]
+
+    for i in range(2 * N):
+        a_list[i] += math.log(omega)
+
+    def h(x):
+        for i in range(0, N):
+            if x < nodes[i+1]:
+                return a_list[i] + b_list[i] * (x - nodes[i+1]) + (1 / (2 * c_list[i])) * (x - nodes[i+1])**2
+        for i in range(N, 2 * N):
+            if x < nodes[i+1]:
+                return a_list[i] + b_list[i] * (x - nodes[i]) + (1 / (2 * c_list[i])) * (x - nodes[i]) ** 2
+        return a_list[2 * N - 1] + b_list[2 * N - 1] * (x - nodes[2 * N - 1]) + \
+               (1 / (2 * c_list[2 * N - 1])) * (x - nodes[2 * N - 1]) ** 2
+    return h
+
+
 
 
 def first_tau(T):
@@ -89,3 +128,19 @@ def first_h(x):
 second_tau = find_tau([0, 1], [0.3, 0.3])
 print(carr_pelts_price(first_h, first_tau, 0.5, 35, 32, 0.05))
 print(carr_pelts_price(first_h, second_tau, 0.5, 35, 32, 0.05))
+
+nodes = [-1 * math.inf, 0, math.inf]
+a = 0
+b = 0
+c_list = [1, 1]
+second_h = find_h(nodes, a, b, c_list)
+print(carr_pelts_price(second_h, first_tau, 0.5, 35, 32, 0.05))
+
+# challenge problem 6
+nodes = [-1 * math.inf, -1, 0, 1, math.inf]
+a = 1/2
+b = 0
+c_list = [1/2, 1, 1, 1/2]
+third_h = find_h(nodes, a, b, c_list)
+
+print(carr_pelts_price(third_h, first_tau, 0.5, 35, 32, 0.05))
