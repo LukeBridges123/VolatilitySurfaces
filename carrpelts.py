@@ -29,6 +29,7 @@ def find_z(h, tau, expiry, strike, initial_price, interest):
     tau_T = tau(expiry)
 
     def to_solve(z):
+        print(z)
         return h(z + tau_T) - h(z) - math.log(forward / strike)
     return root_scalar(to_solve, x0=0, x1=1).root
 
@@ -50,6 +51,7 @@ def carr_pelts_price(h, tau, expiry, strike, initial_price, interest):
     z = find_z(h, tau, expiry, strike, initial_price, interest)
 
     def omega(z):
+        print(z)
         return quad(lambda x: np.exp(-1 * h(x)), -inf, z)[0]
     return discount * (forward * omega(z + tau(expiry)) - strike * omega(z))
 
@@ -86,10 +88,9 @@ def find_h(nodes, a, b, c_list):
     for i in range(N, 2 * N - 1):
         a_list[i+1] = a_list[i] + b_list[i] * (nodes[i+1] - nodes[i]) + (1/(2*c_list[i])) * (nodes[i+1]-nodes[i])**2
         b_list[i+1] = b_list[i] + (1/c_list[i]) * (nodes[i+1] - nodes[i])
-    for i in range(N-1, 0, -1):
+    for i in range(N-1, 0):
         a_list[i-1] = a_list[i] + b_list[i] * (nodes[i] - nodes[i+1]) + (1/(2*c_list[i])) * (nodes[i]-nodes[i+1])**2
         b_list[i-1] = b_list[i] + (1/c_list[i]) * (nodes[i] - nodes[i-1])
-
     omega = 0
     for i in range(0, N):
         integral = quad(lambda x: np.exp(-1 * (a_list[i] + b_list[i] * (x - nodes[i+1]) + (1 / (2 * c_list[i])) * (x - nodes[i+1])**2)),
@@ -136,11 +137,9 @@ c_list = [1, 1]
 second_h = find_h(nodes, a, b, c_list)
 print(carr_pelts_price(second_h, first_tau, 0.5, 35, 32, 0.05))
 
-# challenge problem 6
 nodes = [-1 * math.inf, -1, 0, 1, math.inf]
 a = 1/2
 b = 0
 c_list = [1/2, 1, 1, 1/2]
 third_h = find_h(nodes, a, b, c_list)
-
 print(carr_pelts_price(third_h, first_tau, 0.5, 35, 32, 0.05))
