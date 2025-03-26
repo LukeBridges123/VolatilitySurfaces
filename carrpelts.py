@@ -3,6 +3,7 @@ from scipy.integrate import quad
 import numpy as np
 from numpy import inf
 import math
+from blackscholes import black_scholes_implied_volatility
 
 
 def forward_price(initial_price, interest, expiry):
@@ -29,7 +30,6 @@ def find_z(h, tau, expiry, strike, initial_price, interest):
     tau_T = tau(expiry)
 
     def to_solve(z):
-        print(z)
         return h(z + tau_T) - h(z) - math.log(forward / strike)
     return root_scalar(to_solve, x0=0, x1=1).root
 
@@ -51,7 +51,6 @@ def carr_pelts_price(h, tau, expiry, strike, initial_price, interest):
     z = find_z(h, tau, expiry, strike, initial_price, interest)
 
     def omega(z):
-        print(z)
         return quad(lambda x: np.exp(-1 * h(x)), -inf, z)[0]
     return discount * (forward * omega(z + tau(expiry)) - strike * omega(z))
 
@@ -88,9 +87,9 @@ def find_h(nodes, a, b, c_list):
     for i in range(N, 2 * N - 1):
         a_list[i+1] = a_list[i] + b_list[i] * (nodes[i+1] - nodes[i]) + (1/(2*c_list[i])) * (nodes[i+1]-nodes[i])**2
         b_list[i+1] = b_list[i] + (1/c_list[i]) * (nodes[i+1] - nodes[i])
-    for i in range(N-1, 0):
+    for i in range(N-1, 0, -1):
         a_list[i-1] = a_list[i] + b_list[i] * (nodes[i] - nodes[i+1]) + (1/(2*c_list[i])) * (nodes[i]-nodes[i+1])**2
-        b_list[i-1] = b_list[i] + (1/c_list[i]) * (nodes[i] - nodes[i-1])
+        b_list[i-1] = b_list[i] + (1/c_list[i]) * (nodes[i] - nodes[i+1])
     omega = 0
     for i in range(0, N):
         integral = quad(lambda x: np.exp(-1 * (a_list[i] + b_list[i] * (x - nodes[i+1]) + (1 / (2 * c_list[i])) * (x - nodes[i+1])**2)),
@@ -115,8 +114,17 @@ def find_h(nodes, a, b, c_list):
                (1 / (2 * c_list[2 * N - 1])) * (x - nodes[2 * N - 1]) ** 2
     return h
 
+# use Black-Scholes implied volatilities as the "volatility like quantities"
+def carr_pelts_model(initial_price, interest, expiries, prices, nodes, a, b, c_list):
+    h = find_h(nodes, a, b, c_list)
+    # get implied volatilities of at-the-money options with given maturities
+    volatilities = [black_scholes_implied_volatility(expiries[i], initial_price, initial_price, interest, prices[i])
+                    for i in range(len(expiries))]
+    tau = find_tau(expiries, volatilities)
 
-
+    def model(expiry, strike):
+        return carr_pelts_price(h, tau, expiry, strike, initial_price, interest)
+    return model
 
 def first_tau(T):
     return 0.3 * T**(1/2)
@@ -128,18 +136,23 @@ def first_h(x):
 
 second_tau = find_tau([0, 1], [0.3, 0.3])
 print(carr_pelts_price(first_h, first_tau, 0.5, 35, 32, 0.05))
-print(carr_pelts_price(first_h, second_tau, 0.5, 35, 32, 0.05))
-
-nodes = [-1 * math.inf, 0, math.inf]
-a = 0
-b = 0
-c_list = [1, 1]
-second_h = find_h(nodes, a, b, c_list)
+# nodes etc. used to construct an h function mimicking the one in the Black-Scholes price
+nodes_bs = [-1 * math.inf, 0, math.inf]
+a_bs = 0
+b_bs = 0
+c_list_bs = [1, 1]
+second_h = find_h(nodes_bs, a_bs, b_bs, c_list_bs)
 print(carr_pelts_price(second_h, first_tau, 0.5, 35, 32, 0.05))
 
 nodes = [-1 * math.inf, -1, 0, 1, math.inf]
 a = 1/2
 b = 0
-c_list = [1/2, 1, 1, 1/2]
+c_list = [1/2, 1, 1, 1, 1, 1/2]
 third_h = find_h(nodes, a, b, c_list)
 print(carr_pelts_price(third_h, first_tau, 0.5, 35, 32, 0.05))
+
+print(quad(lambda x : math.exp(-1 * third_h(x)), -1 * math.inf, math.inf)[0])
+
+test_model = carr_pelts_model(150, 0.05, [0.1, 0.25, 0.5], [1.94, 3.87, 6.5], nodes_bs, a_bs, b_bs, c_list_bs)
+print(test_model(0.2, 160))
+print(test_model(0.6, 130))

@@ -2,7 +2,7 @@ from scipy import stats
 from scipy.optimize import root_scalar
 import math
 
-def call_price(expiry, strike, initial_price, interest, volatility):
+def black_scholes_call_price(expiry, strike, initial_price, interest, volatility):
     """
     Calculate the Black-Scholes price of a call option.
     :param expiry: time till expiry (in years). Equivalently, time when the option expires, assuming the current
@@ -23,7 +23,7 @@ def call_price(expiry, strike, initial_price, interest, volatility):
 
     return initial_price * prob1 - strike * math.exp(-1 * interest * expiry) * prob2
 
-def implied_volatility(expiry, strike, initial_price, interest, option_price):
+def black_scholes_implied_volatility(expiry, strike, initial_price, interest, option_price):
     """
     Calculate the Black-Scholes implied volatility of an option at a given price.
     :param expiry: time till expiry (in years). Equivalently, time when the option expires, assuming the current
@@ -35,9 +35,9 @@ def implied_volatility(expiry, strike, initial_price, interest, option_price):
     :return: Implied volatility of the stock.
     """
     def to_solve(sigma):
-        return call_price(expiry, strike, initial_price, interest, sigma) - option_price
+        return black_scholes_call_price(expiry, strike, initial_price, interest, sigma) - option_price
     return root_scalar(to_solve, x0=1, x1=2).root
 
 
-print(call_price(0.5, 35, 32, 0.05, 0.3))
-print(implied_volatility(0.5, 25, 32, 0.05, 7.9))
+print(black_scholes_call_price(0.5, 35, 32, 0.05, 0.3))
+print(black_scholes_implied_volatility(0.5, 25, 32, 0.05, 7.9))
