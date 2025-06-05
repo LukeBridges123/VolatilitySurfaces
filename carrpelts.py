@@ -71,7 +71,7 @@ def find_tau(expiries, volatilities):
 
     def new_tau(t):
         for i in range(M):
-            if t < expiries[i]:
+            if t < expiries[i+1]:
                 return math.sqrt(precomputed_values[i] +
                                  volatilities[i] ** 2 * (t - expiries[i]))
         return math.sqrt(precomputed_values[M] +
@@ -115,23 +115,16 @@ def find_h(nodes, a, b, c_list):
     return h
 
 # use Black-Scholes implied volatilities as the "volatility like quantities"
-def carr_pelts_model(initial_price, interest, expiries, prices, nodes, a, b, c_list):
+def carr_pelts_model(initial_price, strike, interest, expiries, prices, nodes, a, b, c_list):
     h = find_h(nodes, a, b, c_list)
     # get implied volatilities of at-the-money options with given maturities
-    volatilities = [black_scholes_implied_volatility(expiries[i], initial_price, initial_price, interest, prices[i])
+    volatilities = [black_scholes_implied_volatility(expiries[i], strike, initial_price, interest, prices[i])
                     for i in range(len(expiries))]
     tau = find_tau(expiries, volatilities)
 
     def model(expiry, strike):
         return carr_pelts_price(h, tau, expiry, strike, initial_price, interest)
     return model
-
-def first_tau(T):
-    return 0.3 * T**(1/2)
-
-
-def first_h(x):
-    return (x**2 + math.log(2 * math.pi)) / 2
 
 # version with bad numerical differentiation, just as a first attempt
 def simple_deriv(f, x, dx = 0.001):
@@ -142,35 +135,3 @@ def carr_pelts_volatility(h, tau, expiry, strike, initial_price, interest):
     h_prime_1 = simple_deriv(h, z + tau(expiry))
     h_prime_2 = simple_deriv(h, z)
     return math.sqrt(2 * tau_prime * (h_prime_1 - h_prime_2))
-
-
-
-
-second_tau = find_tau([0, 1], [0.3, 0.3])
-print(carr_pelts_price(first_h, first_tau, 0.5, 35, 32, 0.05))
-# nodes etc. used to construct an h function mimicking the one in the Black-Scholes price
-nodes_bs = [-1 * math.inf, 0, math.inf]
-a_bs = 0
-b_bs = 0
-c_list_bs = [1, 1]
-second_h = find_h(nodes_bs, a_bs, b_bs, c_list_bs)
-print(carr_pelts_price(second_h, first_tau, 0.5, 35, 32, 0.05))
-print(carr_pelts_volatility(second_h, first_tau, 0.5, 25, 32, 0.05))
-# challenge problem 5
-nodes = [-1 * math.inf, -1, 0, 1, math.inf]
-a = 1/2
-b = 0
-c_list = [1/2, 1, 1, 1/2]
-third_h = find_h(nodes, a, b, c_list)
-print(carr_pelts_price(third_h, first_tau, 0.5, 35, 32, 0.05))
-
-print(quad(lambda x : math.exp(-1 * third_h(x)), -1 * math.inf, math.inf)[0])
-# challenge problem 3
-test_model = carr_pelts_model(140, 0.05, [0.1, 0.25, 0.5], [1.94, 3.87, 6.5], nodes_bs, a_bs, b_bs, c_list_bs)
-print(test_model(0.2, 160))
-print(test_model(0.6, 130))
-
-# challenge problem 6
-test_model = carr_pelts_model(140, 0.05, [0.1, 0.25, 0.5], [1.94, 3.87, 6.5], nodes_bs, a, b, c_list)
-print(test_model(0.2, 160))
-print(test_model(0.6, 130))

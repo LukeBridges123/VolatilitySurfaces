@@ -37,7 +37,3 @@ def black_scholes_implied_volatility(expiry, strike, initial_price, interest, op
     def to_solve(sigma):
         return black_scholes_call_price(expiry, strike, initial_price, interest, sigma) - option_price
     return root_scalar(to_solve, x0=1, x1=2).root
-
-
-print(black_scholes_call_price(0.5, 35, 32, 0.05, 0.3))
-print(black_scholes_implied_volatility(0.5, 25, 32, 0.05, 7.9))
